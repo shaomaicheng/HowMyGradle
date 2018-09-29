@@ -28,8 +28,11 @@ func main() {
 
 	r.GET("/localgradle", func(context *gin.Context) {
 		handler := context.MustGet(handler.OS_HANDLER).(handler.OSHandler)
-		handler.LocalGradle()
-		context.String(http.StatusOK, fmt.Sprint("local_gradle"))
+		gradles := handler.LocalGradle()
+		for k,v := range gradles {
+			fmt.Println(k + " => " + v)
+		}
+		context.JSON(http.StatusOK, gradles)
 	})
 
 	r.Run(":8090")

@@ -9,6 +9,7 @@ import (
 	"project/myGradle/src/utils"
 	"regexp"
 	"sync"
+	"os/user"
 )
 
 const MACOSX  = "darwin"
@@ -50,7 +51,7 @@ func (OSHandlerManager *OSHandlerManager) Dispatch(engine *gin.Engine) {
 
 type OSHandler interface {
 	Root()
-	LocalGradle()
+	LocalGradle() map[string]string
 }
 
 
@@ -65,13 +66,31 @@ func (osHandler MacOSHandler) Root() {
 /**
 查找mac osx 本地的gradle
  */
-func (osHandler MacOSHandler) LocalGradle() {
+func (osHandler MacOSHandler) LocalGradle() map[string]string {
+
+	gradles := make(map[string]string)
 	// 查找android studio的
 	as := "/Applications/Android Studio.app/Contents/gradle"
+	gradlesInAS := gradleInDir(as)
+	for k,v := range gradlesInAS {
+		gradles[k] = v
+	}
+	// 查找根目录下的gradle
+	username, err := user.Current()
+	var rootDir string = ""
+	if err == nil {
+		rootDir = "/Users/" + username.Name
+		gradlesInRoot := gradleInDir(rootDir)
+		for k,v := range gradlesInRoot {
+			gradles[k] = v
+		}
+	}
+	return gradles
+}
 
-	// 根目录的
-	//root := "~"
 
+// 查找某个父目录下的gradle目录
+func gradleInDir(parent string) map[string]string {
 
 	var (
 		fileInfo       os.FileInfo
@@ -79,24 +98,24 @@ func (osHandler MacOSHandler) LocalGradle() {
 		gradlesMap = make(map[string]string)
 	)
 
-	fileInfo, err = os.Stat(as)
+	fileInfo, err = os.Stat(parent)
 
 	if err != nil {
 		fmt.Println("error! ", err)
 	} else {
 		if fileInfo.IsDir() {
 			// 是文件夹
-			dir, err := ioutil.ReadDir(as)
+			dir, err := ioutil.ReadDir(parent)
 			if err != nil {
 				println("Android Studio gradle dir error!")
 			} else {
 				for _, fi := range dir {
 					fileName := fi.Name()
-					if dirIsGradle(as, fileName) {
+					if dirIsGradle(parent, fileName) {
 						// 是 gradle 文件夹
 						gradleVersion := utils.GradleVersion(fileName)
 						// 完整的路径名
-						gradleDirCompleteName := as + string(filepath.Separator) + fileName
+						gradleDirCompleteName := parent + string(filepath.Separator) + fileName
 						gradlesMap[gradleDirCompleteName] = gradleVersion
 						println(fi.Name() + "是gradle文件夹, 版本是 " + gradleVersion)
 					}
@@ -104,12 +123,13 @@ func (osHandler MacOSHandler) LocalGradle() {
 			}
 		}
 	}
-
-
-	for k,v := range gradlesMap{
-		println(k + " => " + v)
-	}
+	//for k,v := range gradlesMap{
+	//	println(k + " => " + v)
+	//}
+	return gradlesMap
 }
+
+
 
 func dirIsGradle(parent, dirname string) bool {
 	dir, err := os.Stat(parent + string(filepath.Separator) + dirname)
