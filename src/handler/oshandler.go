@@ -8,7 +8,6 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
-	"project/myGradle/src/errors"
 	"project/myGradle/src/utils"
 	"regexp"
 	"sync"
@@ -99,21 +98,21 @@ func (osHandler MacOSHandler) GradleCacheList() (map[string]list.List, error) {
 	username, err := user.Current()
 
 	if err != nil {
-		errors.CheckErr(err)
+		return nil, err
 	}
 
 	gradleCacheDir := "/Users/" + username.Username + "/.gradle/caches/jars-3"
 	gradleCacheDirInfo, err := os.Stat(gradleCacheDir)
 
 	if err != nil {
-		errors.CheckErr(err)
+		return nil, err
 	}
 
 	if gradleCacheDirInfo.IsDir() {
 		//  确定是文件夹
 		dir, err := ioutil.ReadDir(gradleCacheDir)
 		if err != nil {
-			errors.CheckErr(err)
+			return nil, err
 		}
 
 		for _, dirItem := range dir {
@@ -122,7 +121,7 @@ func (osHandler MacOSHandler) GradleCacheList() (map[string]list.List, error) {
 			jarVersionMap, err := ParseGradleJars(gradleCacheDir, dirItem.Name())
 
 			if err != nil {
-				errors.CheckErr(err)
+				return nil, err
 			}
 
 			for k, v := range jarVersionMap {
@@ -207,7 +206,7 @@ func ParseGradleJars(parent string, jarDirName string) (map[string]list.List, er
 	dir, err := os.Stat(finalJarDirName)
 
 	if err != nil {
-		errors.CheckErr(err)
+		return nil ,err
 	}
 
 	if dir.IsDir() {
@@ -215,7 +214,7 @@ func ParseGradleJars(parent string, jarDirName string) (map[string]list.List, er
 
 		if err  != nil {
 
-			errors.CheckErr(err)
+			return nil, err
 
 		}
 
