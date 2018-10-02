@@ -35,5 +35,21 @@ func main() {
 		context.JSON(http.StatusOK, gradles)
 	})
 
+
+	r.GET("/cachelist", func(context *gin.Context) {
+		handler := context.MustGet(handler.OS_HANDLER).(handler.OSHandler)
+		cacheMap, err := handler.GradleCacheList()
+		if err != nil {
+			println(err.Error())
+		} else {
+			for k, v := range cacheMap {
+				for iter := v.Front(); iter != nil; iter = iter.Next() {
+					println(k + " => " + iter.Value.(string))
+				}
+			}
+		}
+		context.String(http.StatusOK, "")
+	})
+
 	r.Run(":8090")
 }

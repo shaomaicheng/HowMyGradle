@@ -1,15 +1,17 @@
 package handler
 
 import (
+	"container/list"
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"io/ioutil"
 	"os"
+	"os/user"
 	"path/filepath"
+	"project/myGradle/src/errors"
 	"project/myGradle/src/utils"
 	"regexp"
 	"sync"
-	"os/user"
 )
 
 const MACOSX  = "darwin"
@@ -52,6 +54,7 @@ func (OSHandlerManager *OSHandlerManager) Dispatch(engine *gin.Engine) {
 type OSHandler interface {
 	Root()
 	LocalGradle() map[string]string
+	GradleCacheList() (map[string]list.List, error)
 }
 
 
@@ -77,7 +80,7 @@ func (osHandler MacOSHandler) LocalGradle() map[string]string {
 	}
 	// 查找根目录下的gradle
 	username, err := user.Current()
-	var rootDir string = ""
+	var rootDir = ""
 	if err == nil {
 		rootDir = "/Users/" + username.Name
 		gradlesInRoot := gradleInDir(rootDir)
@@ -88,6 +91,49 @@ func (osHandler MacOSHandler) LocalGradle() map[string]string {
 	return gradles
 }
 
+func (osHandler MacOSHandler) GradleCacheList() (map[string]list.List, error) {
+
+	gradleVersionsMap := make(map[string]list.List)
+
+	// 查找根目录下的gradle缓存， ~/Users/xx/.gradle/caches/jars-3
+	username, err := user.Current()
+
+	if err != nil {
+		errors.CheckErr(err)
+	}
+
+	gradleCacheDir := "/Users/" + username.Username + "/.gradle/caches/jars-3"
+	gradleCacheDirInfo, err := os.Stat(gradleCacheDir)
+
+	if err != nil {
+		errors.CheckErr(err)
+	}
+
+	if gradleCacheDirInfo.IsDir() {
+		//  确定是文件夹
+		dir, err := ioutil.ReadDir(gradleCacheDir)
+		if err != nil {
+			errors.CheckErr(err)
+		}
+
+		for _, dirItem := range dir {
+			//  解析库版本
+
+			jarVersionMap, err := ParseGradleJars(gradleCacheDir, dirItem.Name())
+
+			if err != nil {
+				errors.CheckErr(err)
+			}
+
+			for k, v := range jarVersionMap {
+				gradleVersionsMap[k] = v
+			}
+
+		}
+	}
+
+	return gradleVersionsMap, nil
+}
 
 // 查找某个父目录下的gradle目录
 func gradleInDir(parent string) map[string]string {
@@ -151,3 +197,47 @@ func isGradle(dirname string) bool {
 
 }
 
+
+
+// 根据gradle 缓存的jar包的名称和父目录去解析gradle库的版本
+
+func ParseGradleJars(parent string, jarDirName string) (map[string]list.List, error) {
+	jarVersionMap := make(map[string]list.List)
+	finalJarDirName := parent + string(filepath.Separator) + jarDirName
+	dir, err := os.Stat(finalJarDirName)
+
+	if err != nil {
+		errors.CheckErr(err)
+	}
+
+	if dir.IsDir() {
+		dir, err := ioutil.ReadDir(finalJarDirName)
+
+		if err  != nil {
+
+			errors.CheckErr(err)
+
+		}
+
+		// 遍历dir文件夹，处理里面每一个jar包
+
+		for _, dirItem := range dir {
+			// 处理每一个jar包
+
+			jarName := dirItem.Name()
+			jarVersionMap[jarName] = handleJar(finalJarDirName, jarName)
+		}
+
+	}
+
+	return jarVersionMap, nil
+}
+
+
+
+// 解析具体的jar 包
+
+func handleJar(parent, jarName string) (list.List) {
+	println(parent+ " => " + jarName)
+	return *list.New()
+}
