@@ -1,4 +1,4 @@
-package handler
+package oshandler
 
 import (
 	"container/list"
@@ -11,6 +11,9 @@ import (
 	"project/myGradle/src/utils"
 	"regexp"
 	"sync"
+	"strings"
+	"strconv"
+	"project/myGradle/src/model"
 )
 
 const MACOSX  = "darwin"
@@ -53,7 +56,7 @@ func (OSHandlerManager *OSHandlerManager) Dispatch(engine *gin.Engine) {
 type OSHandler interface {
 	Root()
 	LocalGradle() map[string]string
-	GradleCacheList() (map[string]list.List, error)
+	GradleCacheList() (*list.List, error)
 }
 
 
@@ -90,9 +93,10 @@ func (osHandler MacOSHandler) LocalGradle() map[string]string {
 	return gradles
 }
 
-func (osHandler MacOSHandler) GradleCacheList() (map[string]list.List, error) {
+// map[stirng]list.List  string=>库名称 List=>版本号数组
+func (osHandler MacOSHandler) GradleCacheList() (*list.List, error) {
 
-	gradleVersionsMap := make(map[string]list.List)
+	gradleVersionsList := new(list.List)
 
 	// 查找根目录下的gradle缓存， ~/Users/xx/.gradle/caches/jars-3
 	username, err := user.Current()
@@ -124,14 +128,14 @@ func (osHandler MacOSHandler) GradleCacheList() (map[string]list.List, error) {
 				return nil, err
 			}
 
-			for k, v := range jarVersionMap {
-				gradleVersionsMap[k] = v
+			for k,v := range jarVersionMap {
+				jarCacheItem := model.JarCache{k, v}
+				gradleVersionsList.PushBack(jarCacheItem)
 			}
 
 		}
 	}
-
-	return gradleVersionsMap, nil
+	return gradleVersionsList, nil
 }
 
 // 查找某个父目录下的gradle目录
@@ -212,19 +216,33 @@ func ParseGradleJars(parent string, jarDirName string) (map[string]list.List, er
 	if dir.IsDir() {
 		dir, err := ioutil.ReadDir(finalJarDirName)
 
-		if err  != nil {
+		if err != nil {
 
 			return nil, err
 
 		}
 
-		// 遍历dir文件夹，处理里面每一个jar包
+		// 遍历dir文件夹，处理里面每一个jar包目录
+
+		jarVersionList := new(list.List)
+		jarName := ""
+		jarWithoutVersion := ""
+		jarVersion := ""
 
 		for _, dirItem := range dir {
-			// 处理每一个jar包
+			// 处理每一个jar包目录
 
-			jarName := dirItem.Name()
-			jarVersionMap[jarName] = handleJar(finalJarDirName, jarName)
+			jarName = dirItem.Name()
+			jar := handleJar(jarName)
+			jarWithoutVersion, jarVersion = getJarWithoutVersion(jar)
+			if jar != "" {
+				jarVersionList.PushBack(jarVersion)
+			}
+		}
+
+		// 此处map的key 带有版本号和.jar， value的list里面带有版本号，需要再处理一次
+		if jarWithoutVersion != "" {
+			jarVersionMap[jarWithoutVersion] = *jarVersionList
 		}
 
 	}
@@ -236,7 +254,58 @@ func ParseGradleJars(parent string, jarDirName string) (map[string]list.List, er
 
 // 解析具体的jar 包
 
-func handleJar(parent, jarName string) (list.List) {
-	println(parent+ " => " + jarName)
-	return *list.New()
+func handleJar(jarName string) string {
+	isJar, jar := isJar(jarName)
+
+	if !isJar {
+		return ""
+	}
+
+	return jar
+}
+
+func isJar(jarName string) (bool,string) {
+	jarRegex := "(.*).jar"
+	isJar, err := regexp.MatchString(jarRegex, jarName)
+	if err != nil {
+		return false, ""
+	}
+
+	if !isJar {
+		return false, ""
+	}
+
+
+	return isJar, jarName[0:len(jarName)-4]
+}
+
+// jar去掉版本号，返回jar自己的名称和版本号
+func getJarWithoutVersion(jar string) (string,string) {
+	jarVersionSplit := strings.Split(jar, "-")
+	len := len(jarVersionSplit)
+	index := 0
+	nameRes,versionRes := "", ""
+	for i := 0; i < len; i++ {
+		_, err := strconv.Atoi(jarVersionSplit[i][0:1])
+		if err == nil {
+			// 是数字,几下数组下标
+			index = i
+			break
+		}
+	}
+	if index == 0 {
+		// 直接返回jar
+		return jar, ""
+	} else {
+		// 把index之前的分隔数组再拼起来
+		for i := 0; i < index; i++ {
+			nameRes += jarVersionSplit[i]
+		}
+
+		// 把index及之后的数组拼接起来作为版本
+		for i := index; i < len; i++ {
+			versionRes += jarVersionSplit[i]
+		}
+	}
+	return nameRes, versionRes
 }

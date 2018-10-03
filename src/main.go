@@ -4,17 +4,18 @@ import (
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"net/http"
-	"project/myGradle/src/handler"
+	"project/myGradle/src/oshandler"
 	"runtime"
+	"project/myGradle/src/model"
 )
 
 
 
 func main() {
 
-	osHandlerManager := handler.GetInstance()
+	osHandlerManager := oshandler.GetInstance()
 
-	osHandlerManager.RegisterOS("darwin",  handler.MacOSHandler{})
+	osHandlerManager.RegisterOS("darwin",  oshandler.MacOSHandler{})
 
 
 	r := gin.Default()
@@ -22,12 +23,12 @@ func main() {
 
 	r.GET("/", func(c *gin.Context) {
 		c.String(http.StatusOK, fmt.Sprint(runtime.GOOS))
-		handler := c.MustGet(handler.OS_HANDLER).(handler.OSHandler)
+		handler := c.MustGet(oshandler.OS_HANDLER).(oshandler.OSHandler)
 		handler.Root()
 	})
 
 	r.GET("/localgradle", func(context *gin.Context) {
-		handler := context.MustGet(handler.OS_HANDLER).(handler.OSHandler)
+		handler := context.MustGet(oshandler.OS_HANDLER).(oshandler.OSHandler)
 		gradles := handler.LocalGradle()
 		for k,v := range gradles {
 			fmt.Println(k + " => " + v)
@@ -37,18 +38,18 @@ func main() {
 
 
 	r.GET("/cachelist", func(context *gin.Context) {
-		handler := context.MustGet(handler.OS_HANDLER).(handler.OSHandler)
-		cacheMap, err := handler.GradleCacheList()
+		handler := context.MustGet(oshandler.OS_HANDLER).(oshandler.OSHandler)
+		cacheList, err := handler.GradleCacheList()
 		if err != nil {
-			println(err.Error())
+			context.JSON(http.StatusExpectationFailed, "获取gradle jar缓存失败")
 		} else {
-			for k, v := range cacheMap {
-				for iter := v.Front(); iter != nil; iter = iter.Next() {
-					println(k + " => " + iter.Value.(string))
-				}
+			println(cacheList.Len())
+			for iter := cacheList.Front(); iter != nil; iter = iter.Next() {
+				item := iter.Value.(model.JarCache)
+				println(item.Name)
 			}
+			context.JSON(http.StatusOK, cacheList)
 		}
-		context.String(http.StatusOK, "")
 	})
 
 	r.Run(":8090")
