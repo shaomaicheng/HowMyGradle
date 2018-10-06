@@ -1,7 +1,6 @@
 package oshandler
 
 import (
-	"container/list"
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"io/ioutil"
@@ -56,7 +55,7 @@ func (OSHandlerManager *OSHandlerManager) Dispatch(engine *gin.Engine) {
 type OSHandler interface {
 	Root()
 	LocalGradle() map[string]string
-	GradleCacheList() (*list.List, error)
+	GradleCacheList() ([]model.JarCache, error)
 }
 
 
@@ -94,9 +93,9 @@ func (osHandler MacOSHandler) LocalGradle() map[string]string {
 }
 
 // map[stirng]list.List  string=>库名称 List=>版本号数组
-func (osHandler MacOSHandler) GradleCacheList() (*list.List, error) {
+func (osHandler MacOSHandler) GradleCacheList() ([]model.JarCache, error) {
 
-	gradleVersionsList := new(list.List)
+	gradleVersionsList := make([]model.JarCache, 0)
 
 	// 查找根目录下的gradle缓存， ~/Users/xx/.gradle/caches/jars-3
 	username, err := user.Current()
@@ -130,7 +129,7 @@ func (osHandler MacOSHandler) GradleCacheList() (*list.List, error) {
 
 			for k,v := range jarVersionMap {
 				jarCacheItem := model.JarCache{k, v}
-				gradleVersionsList.PushBack(jarCacheItem)
+				gradleVersionsList = append(gradleVersionsList, jarCacheItem)
 			}
 
 		}
@@ -204,8 +203,8 @@ func isGradle(dirname string) bool {
 
 // 根据gradle 缓存的jar包的名称和父目录去解析gradle库的版本
 
-func ParseGradleJars(parent string, jarDirName string) (map[string]list.List, error) {
-	jarVersionMap := make(map[string]list.List)
+func ParseGradleJars(parent string, jarDirName string) (map[string][]string, error) {
+	jarVersionMap := make(map[string][]string)
 	finalJarDirName := parent + string(filepath.Separator) + jarDirName
 	dir, err := os.Stat(finalJarDirName)
 
@@ -224,7 +223,7 @@ func ParseGradleJars(parent string, jarDirName string) (map[string]list.List, er
 
 		// 遍历dir文件夹，处理里面每一个jar包目录
 
-		jarVersionList := new(list.List)
+		jarVersionList := make([]string,0)
 		jarName := ""
 		jarWithoutVersion := ""
 		jarVersion := ""
@@ -236,13 +235,13 @@ func ParseGradleJars(parent string, jarDirName string) (map[string]list.List, er
 			jar := handleJar(jarName)
 			jarWithoutVersion, jarVersion = getJarWithoutVersion(jar)
 			if jar != "" {
-				jarVersionList.PushBack(jarVersion)
+				jarVersionList = append(jarVersionList, jarVersion)
 			}
 		}
 
 		// 此处map的key 带有版本号和.jar， value的list里面带有版本号，需要再处理一次
 		if jarWithoutVersion != "" {
-			jarVersionMap[jarWithoutVersion] = *jarVersionList
+			jarVersionMap[jarWithoutVersion] = jarVersionList
 		}
 
 	}

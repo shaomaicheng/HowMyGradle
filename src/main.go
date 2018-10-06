@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"project/myGradle/src/oshandler"
 	"runtime"
-	"project/myGradle/src/model"
 )
 
 
@@ -43,11 +42,6 @@ func main() {
 		if err != nil {
 			context.JSON(http.StatusExpectationFailed, "获取gradle jar缓存失败")
 		} else {
-			println(cacheList.Len())
-			for iter := cacheList.Front(); iter != nil; iter = iter.Next() {
-				item := iter.Value.(model.JarCache)
-				println(item.Name)
-			}
 			context.JSON(http.StatusOK, cacheList)
 		}
 	})
