@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"project/myGradle/src/oshandler"
 	"runtime"
+	"project/myGradle/src/model"
+	"project/myGradle/src/di"
 )
 
 
@@ -40,10 +42,25 @@ func main() {
 		handler := context.MustGet(oshandler.OS_HANDLER).(oshandler.OSHandler)
 		cacheList, err := handler.GradleCacheList()
 		if err != nil {
-			context.JSON(http.StatusExpectationFailed, "获取gradle jar缓存失败")
+			context.JSON(http.StatusExpectationFailed, model.ErrorResponse{500, "获取gradle jar缓存失败"})
 		} else {
 			context.JSON(http.StatusOK, cacheList)
 		}
+	})
+
+	r.GET("/jardetails/", func(context *gin.Context) {
+			jarName := context.DefaultQuery("jarname", "")
+			if jarName == "" {
+			context.JSON(http.StatusOK, model.ErrorResponse{500, "jar名称非法"})
+		}
+
+		//version := context.DefaultQuery("version", "")
+
+
+		jarHandler := di.NewJarHandler()
+		handlerRes:=jarHandler.Handler(jarName)
+		context.String(http.StatusOK, handlerRes)
+
 	})
 
 	r.Run(":8090")
