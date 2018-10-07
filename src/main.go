@@ -59,8 +59,7 @@ func main() {
 		}
 
 		jarHandler := di.NewJarHandler()
-		handlerRes := jarHandler.Handler(jarName, version)
-		context.String(http.StatusOK, handlerRes)
+		jarHandler.Handler(jarName, version, context)
 
 	})
 
