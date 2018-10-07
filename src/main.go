@@ -10,14 +10,11 @@ import (
 	"project/myGradle/src/di"
 )
 
-
-
 func main() {
 
 	osHandlerManager := oshandler.GetInstance()
 
-	osHandlerManager.RegisterOS("darwin",  oshandler.MacOSHandler{})
-
+	osHandlerManager.RegisterOS("darwin", oshandler.MacOSHandler{})
 
 	r := gin.Default()
 	osHandlerManager.Dispatch(r)
@@ -31,12 +28,11 @@ func main() {
 	r.GET("/localgradle", func(context *gin.Context) {
 		handler := context.MustGet(oshandler.OS_HANDLER).(oshandler.OSHandler)
 		gradles := handler.LocalGradle()
-		for k,v := range gradles {
+		for k, v := range gradles {
 			fmt.Println(k + " => " + v)
 		}
 		context.JSON(http.StatusOK, gradles)
 	})
-
 
 	r.GET("/cachelist", func(context *gin.Context) {
 		handler := context.MustGet(oshandler.OS_HANDLER).(oshandler.OSHandler)
@@ -49,16 +45,21 @@ func main() {
 	})
 
 	r.GET("/jardetails/", func(context *gin.Context) {
-			jarName := context.DefaultQuery("jarname", "")
-			if jarName == "" {
+		jarName := context.DefaultQuery("jarname", "")
+		if jarName == "" {
 			context.JSON(http.StatusOK, model.ErrorResponse{500, "jar名称非法"})
+			return
 		}
 
-		//version := context.DefaultQuery("version", "")
+		version := context.DefaultQuery("version", "")
 
+		if version == "" {
+			context.JSON(http.StatusOK,model.ErrorResponse{500, "本地没有此jar版本信息"})
+			return
+		}
 
 		jarHandler := di.NewJarHandler()
-		handlerRes:=jarHandler.Handler(jarName)
+		handlerRes := jarHandler.Handler(jarName, version)
 		context.String(http.StatusOK, handlerRes)
 
 	})
